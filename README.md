@@ -93,10 +93,8 @@ npx wrangler deploy       # prints your *.workers.dev url
 Open the url in two browsers, type the same room code, play. First in is White. Shocks
 are live by default here too; tick "Dry run" in the setup box to just watch the log.
 
-To deploy on push instead, either connect the repo in the Cloudflare dashboard
-(Worker -> Settings -> Builds, root directory `web`) or add `CLOUDFLARE_API_TOKEN` and
-`CLOUDFLARE_ACCOUNT_ID` as repo secrets so `.github/workflows/deploy-web.yml` runs.
-Pick one, not both.
+Pushes to `main` deploy automatically: the repo is connected in the Cloudflare
+dashboard (Worker -> Settings -> Build, root directory `web`).
 
 `npx wrangler dev` runs the whole thing locally on http://127.0.0.1:8787.
 

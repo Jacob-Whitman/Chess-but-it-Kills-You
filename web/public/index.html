@@ -45,7 +45,13 @@
       <summary>Setup</summary>
       <label>Room code <input id="room" type="text" placeholder="purple-knight"></label>
       <label>OpenShock API token <input id="token" type="password" placeholder="only needs shockers.use"></label>
-      <label>Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
+      <div class="row" style="align-items:flex-end">
+        <label style="flex:1">Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
+        <button id="check" type="button" title="Ask OpenShock which shockers this token can see">Check token</button>
+      </div>
+      <label id="pickWrap" style="display:none">Pick one
+        <select id="pick"></select>
+      </label>
       <label><input id="dry" type="checkbox"> Dry run (log only, send nothing)</label>
       <div class="grid2">
         <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
@@ -339,6 +345,37 @@ function connect() {
   // keep the socket alive through proxies; the server answers without waking up
   const ka = setInterval(() => { if (ws && ws.readyState === 1) ws.send("ping"); else clearInterval(ka); }, 30000);
 }
+
+$("check").onclick = async () => {
+  cfg = readCfg();
+  if (!cfg.token) { log("Paste your API token first."); return; }
+  let r;
+  try {
+    r = await fetch(API + "/1/shockers/own", { headers: { "OpenShockToken": cfg.token } });
+  } catch (e) { log("couldn't reach OpenShock: " + e.message); return; }
+  if (r.status === 401) { log("Token rejected (401). Make sure you copied the whole token, it's the long string shown once when you create it."); return; }
+  if (r.status === 403) { log("Token works but lacks permission (403). It needs shockers.use."); return; }
+  if (!r.ok) { log(`OpenShock said HTTP ${r.status}`); return; }
+  const hubs = (await r.json()).data || [];
+  const pick = $("pick");
+  pick.innerHTML = "";
+  let n = 0;
+  for (const hub of hubs) for (const s of hub.shockers || []) {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = `${s.name} (${hub.name})${s.isPaused ? " - paused" : ""}`;
+    pick.appendChild(o);
+    n++;
+  }
+  if (!n) { log("Token ok, but no shockers on this account."); return; }
+  $("pickWrap").style.display = "";
+  if (!cfg.shocker || ![...pick.options].some(o => o.value === cfg.shocker)) {
+    $("shocker").value = pick.value;
+    cfg = readCfg();
+  } else pick.value = cfg.shocker;
+  log(`Token ok, ${n} shocker${n === 1 ? "" : "s"} found.`);
+};
+$("pick").onchange = () => { $("shocker").value = $("pick").value; cfg = readCfg(); };
 
 $("join").onclick = connect;
 $("leave").onclick = () => { wantConnected = false; if (ws) ws.close(); };

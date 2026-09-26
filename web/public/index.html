@@ -8,8 +8,8 @@
   :root { --light: #f0d9b5; --dark: #b58863; --sel: #f6f669; --last: #cdd26a; --check: #e05050; }
   body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #1e1e1e; color: #ddd; }
   .wrap { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; justify-content: center; }
-  #board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(92vw, 576px); aspect-ratio: 1; user-select: none; }
-  .sq { display: flex; align-items: center; justify-content: center; font-size: clamp(24px, 6vw, 44px); cursor: pointer; position: relative; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; color: #000; }
+  #board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(92vw, 576px); aspect-ratio: 1; user-select: none; }
+  .sq { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; overflow: hidden; line-height: 1; font-size: clamp(24px, 6vw, 44px); cursor: pointer; position: relative; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; color: #000; }
   .sq.light { background: var(--light); } .sq.dark { background: var(--dark); }
   .sq.last { background: var(--last); } .sq.sel { background: var(--sel); } .sq.check { background: var(--check); }
   .sq.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: rgba(0,0,0,.45); }
@@ -20,7 +20,7 @@
   #punish { color: #ff6b6b; font-weight: bold; min-height: 1.4em; }
   textarea, #log, #moves { width: 100%; box-sizing: border-box; background: #111; color: #ccc; border: 1px solid #333; font-family: Consolas, monospace; font-size: 12px; }
   #moves { height: 120px; overflow: auto; padding: 4px; white-space: pre-wrap; }
-  #log { height: 140px; overflow: auto; padding: 4px; }
+  #log { height: 140px; overflow: auto; padding: 4px; white-space: pre-wrap; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; }
   button { padding: 6px 10px; cursor: pointer; }
   button.stop { background: #a00000; color: #fff; font-weight: bold; margin-left: auto; }

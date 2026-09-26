@@ -90,7 +90,8 @@ npx wrangler login        # once
 npx wrangler deploy       # prints your *.workers.dev url
 ```
 
-Open the url in two browsers, type the same room code, play. First in is White.
+Open the url in two browsers, type the same room code, play. First in is White. Shocks
+are live by default here too; tick "Dry run" in the setup box to just watch the log.
 
 To deploy on push instead, either connect the repo in the Cloudflare dashboard
 (Worker -> Settings -> Builds, root directory `web`) or add `CLOUDFLARE_API_TOKEN` and

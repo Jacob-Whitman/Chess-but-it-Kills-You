@@ -37,7 +37,7 @@
   <div id="board"></div>
 
   <div class="side">
-    <div id="banner" class="banner dry">DRY RUN</div>
+    <div id="banner" class="banner live">LIVE SHOCKS ENABLED</div>
     <div id="status">Not connected.</div>
     <div id="punish">No punishment yet.</div>
 
@@ -46,7 +46,7 @@
       <label>Room code <input id="room" type="text" placeholder="purple-knight"></label>
       <label>OpenShock API token <input id="token" type="password" placeholder="only needs shockers.use"></label>
       <label>Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
-      <label><input id="dry" type="checkbox" checked> Dry run (log only, send nothing)</label>
+      <label><input id="dry" type="checkbox"> Dry run (log only, send nothing)</label>
       <div class="grid2">
         <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
         <label>Max duration ms <input id="maxMs" type="number" min="300" max="65535"></label>
@@ -98,7 +98,7 @@ const API = "https://api.openshock.app";
 const GLYPH = { K:"♔",Q:"♕",R:"♖",B:"♗",N:"♘",P:"♙",k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟" };
 const VALUE = { p:1, n:3, b:3, r:5, q:9 };
 const PIECE = { p:"pawn", n:"knight", b:"bishop", r:"rook", q:"queen" };
-const DEFAULTS = { pawn:10, knight:25, bishop:25, rook:40, queen:70, mate:100, base:400, perPoint:150, mateMs:3000, checkVib:35, checkMs:500, maxI:50, maxMs:2500, promo:"q", dry:true, room:"", token:"", shocker:"" };
+const DEFAULTS = { pawn:10, knight:25, bishop:25, rook:40, queen:70, mate:100, base:400, perPoint:150, mateMs:3000, checkVib:35, checkMs:500, maxI:50, maxMs:2500, promo:"q", dry:false, room:"", token:"", shocker:"" };
 const FIELDS = Object.keys(DEFAULTS);
 
 const $ = id => document.getElementById(id);

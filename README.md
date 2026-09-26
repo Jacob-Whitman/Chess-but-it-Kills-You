@@ -77,6 +77,28 @@ about your account.
 Online games get a **Resign** button (see above re: what resigning costs you). New game
 resets both boards. If the two boards ever disagree both sides drop the connection.
 
+## Browser version (web/)
+
+Same game, no install: one Cloudflare Worker serves the page and runs the rooms. Each
+browser keeps its own token in localStorage and shocks its own player, the server only
+ever sees moves. It's on Cloudflare's free plan.
+
+```
+cd web
+npm install
+npx wrangler login        # once
+npx wrangler deploy       # prints your *.workers.dev url
+```
+
+Open the url in two browsers, type the same room code, play. First in is White.
+
+To deploy on push instead, either connect the repo in the Cloudflare dashboard
+(Worker -> Settings -> Builds, root directory `web`) or add `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` as repo secrets so `.github/workflows/deploy-web.yml` runs.
+Pick one, not both.
+
+`npx wrangler dev` runs the whole thing locally on http://127.0.0.1:8787.
+
 ## All the flags
 
 ```
@@ -124,6 +146,9 @@ chess_kills/engine.py     the ai
 chess_kills/network.py    host/join/relay sessions
 chess_kills/gui.py        tkinter
 tests/                    python -m unittest discover -s tests
+web/src/worker.js         cloudflare worker + Room durable object
+web/public/index.html     the browser game
+web/wrangler.toml         cloudflare config
 ```
 
 ## Don't be stupid

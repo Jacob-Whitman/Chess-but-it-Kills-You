@@ -1,0 +1,16 @@
+name = "chess-but-it-kills-you"
+main = "src/worker.js"
+compatibility_date = "2025-08-01"
+
+# static page, served before the worker runs
+[assets]
+directory = "./public"
+
+# one Room object per room code
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

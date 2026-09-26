@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chess But It Kills You</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --light: #f0d9b5; --dark: #b58863; --sel: #f6f669; --last: #cdd26a; --check: #e05050; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #1e1e1e; color: #ddd; }
+  .wrap { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; justify-content: center; }
+  #board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(92vw, 576px); aspect-ratio: 1; user-select: none; }
+  .sq { display: flex; align-items: center; justify-content: center; font-size: clamp(24px, 6vw, 44px); cursor: pointer; position: relative; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; color: #000; }
+  .sq.light { background: var(--light); } .sq.dark { background: var(--dark); }
+  .sq.last { background: var(--last); } .sq.sel { background: var(--sel); } .sq.check { background: var(--check); }
+  .sq.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: rgba(0,0,0,.45); }
+  .side { width: min(92vw, 360px); display: flex; flex-direction: column; gap: 8px; }
+  .banner { padding: 6px; text-align: center; font-weight: bold; color: #fff; }
+  .banner.dry { background: #3c7a3c; } .banner.live { background: #a00000; }
+  #status { font-size: 1.1em; min-height: 1.4em; }
+  #punish { color: #ff6b6b; font-weight: bold; min-height: 1.4em; }
+  textarea, #log, #moves { width: 100%; box-sizing: border-box; background: #111; color: #ccc; border: 1px solid #333; font-family: Consolas, monospace; font-size: 12px; }
+  #moves { height: 120px; overflow: auto; padding: 4px; white-space: pre-wrap; }
+  #log { height: 140px; overflow: auto; padding: 4px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { padding: 6px 10px; cursor: pointer; }
+  button.stop { background: #a00000; color: #fff; font-weight: bold; margin-left: auto; }
+  label { display: block; font-size: 13px; margin-top: 4px; }
+  input[type=text], input[type=password], input[type=number], select { width: 100%; box-sizing: border-box; padding: 4px; background: #111; color: #ddd; border: 1px solid #333; }
+  details { border: 1px solid #333; padding: 6px; }
+  summary { cursor: pointer; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+  small { color: #888; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="board"></div>
+
+  <div class="side">
+    <div id="banner" class="banner dry">DRY RUN</div>
+    <div id="status">Not connected.</div>
+    <div id="punish">No punishment yet.</div>
+
+    <details id="setup" open>
+      <summary>Setup</summary>
+      <label>Room code <input id="room" type="text" placeholder="purple-knight"></label>
+      <label>OpenShock API token <input id="token" type="password" placeholder="only needs shockers.use"></label>
+      <label>Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
+      <label><input id="dry" type="checkbox" checked> Dry run (log only, send nothing)</label>
+      <div class="grid2">
+        <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
+        <label>Max duration ms <input id="maxMs" type="number" min="300" max="65535"></label>
+      </div>
+      <details>
+        <summary>Per-piece numbers</summary>
+        <div class="grid2">
+          <label>Pawn % <input id="pawn" type="number"></label>
+          <label>Knight % <input id="knight" type="number"></label>
+          <label>Bishop % <input id="bishop" type="number"></label>
+          <label>Rook % <input id="rook" type="number"></label>
+          <label>Queen % <input id="queen" type="number"></label>
+          <label>Checkmate % <input id="mate" type="number"></label>
+          <label>Base ms <input id="base" type="number"></label>
+          <label>Per point ms <input id="perPoint" type="number"></label>
+          <label>Checkmate ms <input id="mateMs" type="number"></label>
+          <label>Check vibrate % <input id="checkVib" type="number"></label>
+          <label>Check vibrate ms <input id="checkMs" type="number"></label>
+          <label>Auto-promote to
+            <select id="promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select>
+          </label>
+        </div>
+      </details>
+      <small>Everything here stays in this browser's localStorage. The server only ever sees moves.</small>
+      <div class="row" style="margin-top:6px">
+        <button id="join">Join room</button>
+        <button id="leave" disabled>Leave</button>
+      </div>
+    </details>
+
+    <div class="row">
+      <button id="newgame" disabled>New game</button>
+      <button id="resign" disabled>Resign</button>
+      <button id="pulse">Test pulse</button>
+      <button id="stop" class="stop">EMERGENCY STOP</button>
+    </div>
+
+    <div>Moves</div>
+    <div id="moves"></div>
+    <div>Log</div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1/dist/esm/chess.js";
+
+const API = "https://api.openshock.app";
+const GLYPH = { K:"♔",Q:"♕",R:"♖",B:"♗",N:"♘",P:"♙",k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟" };
+const VALUE = { p:1, n:3, b:3, r:5, q:9 };
+const PIECE = { p:"pawn", n:"knight", b:"bishop", r:"rook", q:"queen" };
+const DEFAULTS = { pawn:10, knight:25, bishop:25, rook:40, queen:70, mate:100, base:400, perPoint:150, mateMs:3000, checkVib:35, checkMs:500, maxI:50, maxMs:2500, promo:"q", dry:true, room:"", token:"", shocker:"" };
+const FIELDS = Object.keys(DEFAULTS);
+
+const $ = id => document.getElementById(id);
+
+// ---- settings <-> localStorage
+
+function loadCfg() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("cbiky") || "{}"); } catch {}
+  const cfg = { ...DEFAULTS, ...saved };
+  for (const k of FIELDS) {
+    const el = $(k);
+    if (el.type === "checkbox") el.checked = !!cfg[k]; else el.value = cfg[k];
+  }
+  return cfg;
+}
+function readCfg() {
+  const cfg = {};
+  for (const k of FIELDS) {
+    const el = $(k);
+    if (el.type === "checkbox") cfg[k] = el.checked;
+    else if (el.type === "number") cfg[k] = Number(el.value);
+    else cfg[k] = el.value.trim();
+  }
+  try { localStorage.setItem("cbiky", JSON.stringify(cfg)); } catch {}
+  return cfg;
+}
+let cfg = loadCfg();
+document.querySelectorAll("#setup input, #setup select").forEach(el => el.addEventListener("change", () => { cfg = readCfg(); updateBanner(); }));
+
+function updateBanner() {
+  $("banner").className = "banner " + (cfg.dry ? "dry" : "live");
+  $("banner").textContent = cfg.dry ? "DRY RUN" : "LIVE SHOCKS ENABLED";
+}
+updateBanner();
+
+// ---- log
+
+function log(msg) {
+  const el = $("log");
+  el.textContent += msg + "\n";
+  el.scrollTop = el.scrollHeight;
+  if (/\d+% for \d+ ms/.test(msg)) $("punish").textContent = msg;
+}
+
+// ---- openshock, called for *this* player only
+
+function cap(type, intensity, duration, reason) {
+  return {
+    type,
+    intensity: Math.max(0, Math.min(Math.round(intensity), cfg.maxI, 100)),
+    duration: Math.max(300, Math.min(Math.round(duration), cfg.maxMs, 65535)),
+    reason,
+  };
+}
+
+async function send(p) {
+  log(`${cfg.dry ? "[DRY RUN] " : ""}${p.type} ${p.intensity}% for ${p.duration} ms (${p.reason})`);
+  if (cfg.dry) return;
+  if (!cfg.token || !cfg.shocker) { log("no token / shocker id set, nothing sent"); return; }
+  try {
+    const r = await fetch(API + "/2/shockers/control", {
+      method: "POST",
+      headers: { "OpenShockToken": cfg.token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shocks: [{ id: cfg.shocker, type: p.type, intensity: p.intensity, duration: p.duration, exclusive: true }],
+        customName: "Chess: " + p.reason,
+      }),
+    });
+    if (!r.ok) log(`OpenShock said HTTP ${r.status}`);
+  } catch (e) {
+    log("couldn't reach OpenShock: " + e.message);
+  }
+}
+
+// ---- game state
+
+let ws = null, me = null, state = null, selected = null, wantConnected = false, lastResigned = null;
+const local = new Chess();  // mirror of the server position, for legal move hints
+
+function applyState(s) {
+  const prevResigned = state ? state.resigned : null;
+  state = s;
+  local.load(s.fen);
+  selected = null;
+  drawBoard();
+  drawMoves();
+  drawStatus();
+
+  if (s.reset) {
+    log(s.reset === me ? "New game." : "Opponent started a new game.");
+    $("punish").textContent = "No punishment yet.";
+    lastResigned = null;
+    return;
+  }
+
+  // punishments are only for me
+  if (s.last && s.last.by !== me) {
+    if (s.checkmate) send(cap("Shock", cfg.mate, cfg.mateMs, "checkmated"));
+    else if (s.last.captured) {
+      const pc = s.last.captured;
+      send(cap("Shock", cfg[PIECE[pc]], cfg.base + cfg.perPoint * VALUE[pc], "lost " + PIECE[pc]));
+    } else if (s.check && cfg.checkVib > 0) send(cap("Vibrate", cfg.checkVib, cfg.checkMs, "in check"));
+  }
+  if (s.resigned && s.resigned !== prevResigned && s.resigned !== lastResigned) {
+    lastResigned = s.resigned;
+    if (s.resigned === me) send(cap("Shock", cfg.mate, cfg.mateMs, "resigned"));
+    else log("Opponent resigned.");
+  }
+}
+
+// ---- drawing
+
+const FILES = "abcdefgh";
+function squares() {
+  // top-left first, flipped for black
+  const out = [];
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const file = me === "b" ? 7 - f : f;
+    const rank = me === "b" ? r + 1 : 8 - r;
+    out.push(FILES[file] + rank);
+  }
+  return out;
+}
+
+function drawBoard() {
+  const board = $("board");
+  board.innerHTML = "";
+  const targets = selected ? new Set(local.moves({ square: selected, verbose: true }).map(m => m.to)) : new Set();
+  const lastSq = state && state.last ? [state.last.from, state.last.to] : [];
+  let checkSq = null;
+  if (state && state.check) {
+    for (const row of local.board()) for (const p of row) if (p && p.type === "k" && p.color === local.turn()) checkSq = p.square;
+  }
+  for (const sq of squares()) {
+    const div = document.createElement("div");
+    const f = FILES.indexOf(sq[0]), r = Number(sq[1]);
+    div.className = "sq " + ((f + r) % 2 ? "light" : "dark");
+    div.title = sq;
+    if (lastSq.includes(sq)) div.classList.add("last");
+    if (sq === selected) div.classList.add("sel");
+    if (sq === checkSq) div.classList.add("check");
+    if (targets.has(sq)) div.classList.add("dot");
+    const p = local.get(sq);
+    if (p) div.textContent = GLYPH[p.color === "w" ? p.type.toUpperCase() : p.type];
+    div.onclick = () => clickSquare(sq);
+    board.appendChild(div);
+  }
+}
+
+function drawMoves() {
+  const mv = state ? state.moves : [];
+  let out = "";
+  for (let i = 0; i < mv.length; i += 2) out += `${(i / 2 + 1).toString().padStart(3)}. ${mv[i].padEnd(8)}${mv[i + 1] || ""}\n`;
+  $("moves").textContent = out;
+  $("moves").scrollTop = $("moves").scrollHeight;
+}
+
+function name(c) { return c === "w" ? "White" : "Black"; }
+
+function drawStatus() {
+  const el = $("status");
+  if (!ws) { el.textContent = "Not connected."; return; }
+  if (!state) { el.textContent = "Connecting..."; return; }
+  if (state.resigned) { el.textContent = `${name(state.resigned)} resigned. ${name(state.resigned === "w" ? "b" : "w")} wins.`; return; }
+  if (state.checkmate) { el.textContent = `Checkmate. ${name(state.turn === "w" ? "b" : "w")} wins.`; return; }
+  if (state.draw) { el.textContent = "Draw."; return; }
+  if (state.players.length < 2) { el.textContent = `You are ${name(me)}. Waiting for an opponent to join "${cfg.room}"...`; return; }
+  const chk = state.check ? " (check!)" : "";
+  el.textContent = state.turn === me ? `Your move (${name(me)})${chk}` : `${name(state.turn)} to move${chk}. Waiting for opponent...`;
+}
+
+// ---- clicking
+
+function clickSquare(sq) {
+  if (!ws || !state || state.over || state.turn !== me || state.players.length < 2) return;
+  const p = local.get(sq);
+  if (selected === null) {
+    if (p && p.color === me) { selected = sq; drawBoard(); }
+    return;
+  }
+  if (sq === selected) { selected = null; drawBoard(); return; }
+  const legal = local.moves({ square: selected, verbose: true }).find(m => m.to === sq);
+  if (legal) {
+    ws.send(JSON.stringify({ type: "move", from: selected, to: sq, promotion: legal.promotion ? cfg.promo : undefined }));
+    selected = null;
+    drawBoard();
+    return;
+  }
+  selected = (p && p.color === me) ? sq : null;
+  drawBoard();
+}
+
+// ---- websocket
+
+function connect() {
+  cfg = readCfg();
+  if (!cfg.room) { log("Pick a room code first."); return; }
+  if (!/^[a-z0-9][a-z0-9_-]{1,63}$/i.test(cfg.room)) { log("Room code: 2-64 chars, letters, numbers, - or _"); return; }
+  wantConnected = true;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws/${encodeURIComponent(cfg.room.toLowerCase())}`);
+  state = null; me = null;
+  drawStatus();
+  $("join").disabled = true; $("leave").disabled = false;
+
+  ws.onmessage = ev => {
+    if (ev.data === "pong") return;
+    const msg = JSON.parse(ev.data);
+    if (msg.type === "welcome") {
+      me = msg.color;
+      log(`Joined "${cfg.room}" as ${name(me)}.`);
+      $("newgame").disabled = false; $("resign").disabled = false;
+      $("setup").open = false;
+      applyState({ ...msg, last: null });
+      state.last = null;
+    } else if (msg.type === "state") {
+      applyState(msg);
+    } else if (msg.type === "presence") {
+      const before = state ? state.players.length : 0;
+      if (state) state.players = msg.players;
+      if (msg.players.length === 2 && before < 2) log("Opponent connected.");
+      if (msg.players.length < 2 && before === 2) log("Opponent disconnected.");
+      drawStatus();
+    } else if (msg.type === "error") {
+      log("Server: " + msg.message);
+    }
+  };
+  ws.onclose = ev => {
+    ws = null;
+    $("newgame").disabled = true; $("resign").disabled = true;
+    $("join").disabled = false; $("leave").disabled = true;
+    if (ev.code === 4000) { log("That room already has two players."); wantConnected = false; }
+    drawStatus();
+    if (wantConnected) { log("Connection lost, retrying in 3s..."); setTimeout(() => { if (wantConnected && !ws) connect(); }, 3000); }
+  };
+  ws.onerror = () => {};
+  // keep the socket alive through proxies; the server answers without waking up
+  const ka = setInterval(() => { if (ws && ws.readyState === 1) ws.send("ping"); else clearInterval(ka); }, 30000);
+}
+
+$("join").onclick = connect;
+$("leave").onclick = () => { wantConnected = false; if (ws) ws.close(); };
+$("newgame").onclick = () => ws && ws.send(JSON.stringify({ type: "new_game" }));
+$("resign").onclick = () => { if (ws && state && !state.over && confirm("Resign? That counts as getting mated.")) ws.send(JSON.stringify({ type: "resign" })); };
+$("pulse").onclick = () => { cfg = readCfg(); send(cap("Vibrate", 20, 500, "test pulse")); };
+$("stop").onclick = async () => {
+  cfg = readCfg();
+  log("STOP");
+  if (cfg.dry || !cfg.token || !cfg.shocker) return;
+  try {
+    await fetch(API + "/2/shockers/control", {
+      method: "POST",
+      headers: { "OpenShockToken": cfg.token, "Content-Type": "application/json" },
+      body: JSON.stringify({ shocks: [{ id: cfg.shocker, type: "Stop", intensity: 0, duration: 300, exclusive: true }], customName: "Chess: STOP" }),
+    });
+  } catch (e) { log("STOP failed: " + e.message); }
+};
+
+drawBoard();
+</script>
+</body>
+</html>

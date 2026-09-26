@@ -1,0 +1,15 @@
+{
+  "name": "chess-but-it-kills-you-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "chess.js": "^1.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

@@ -92,6 +92,7 @@ npx wrangler deploy       # prints your *.workers.dev url
 
 Open the url in two browsers, type the same room code, play. First in is White. Shocks
 are live by default here too; tick "Dry run" in the setup box to just watch the log.
+Tick "Vibrate only" to play for real but have every shock sent as a vibrate instead.
 
 Pushes to `main` deploy automatically: the repo is connected in the Cloudflare
 dashboard (Worker -> Settings -> Build, root directory `web`).

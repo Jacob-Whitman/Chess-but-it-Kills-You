@@ -15,7 +15,7 @@
   .sq.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: rgba(0,0,0,.45); }
   .side { width: min(92vw, 360px); display: flex; flex-direction: column; gap: 8px; }
   .banner { padding: 6px; text-align: center; font-weight: bold; color: #fff; }
-  .banner.dry { background: #3c7a3c; } .banner.live { background: #a00000; }
+  .banner.dry { background: #3c7a3c; } .banner.live { background: #a00000; } .banner.vib { background: #b36b00; }
   #status { font-size: 1.1em; min-height: 1.4em; }
   #punish { color: #ff6b6b; font-weight: bold; min-height: 1.4em; }
   textarea, #log, #moves { width: 100%; box-sizing: border-box; background: #111; color: #ccc; border: 1px solid #333; font-family: Consolas, monospace; font-size: 12px; }
@@ -53,6 +53,7 @@
         <select id="pick"></select>
       </label>
       <label><input id="dry" type="checkbox"> Dry run (log only, send nothing)</label>
+      <label><input id="vibOnly" type="checkbox"> Vibrate only (every shock is sent as a vibrate instead)</label>
       <div class="grid2">
         <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
         <label>Max duration ms <input id="maxMs" type="number" min="300" max="65535"></label>
@@ -104,7 +105,7 @@ const API = "https://api.openshock.app";
 const GLYPH = { K:"♔",Q:"♕",R:"♖",B:"♗",N:"♘",P:"♙",k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟" };
 const VALUE = { p:1, n:3, b:3, r:5, q:9 };
 const PIECE = { p:"pawn", n:"knight", b:"bishop", r:"rook", q:"queen" };
-const DEFAULTS = { pawn:10, knight:25, bishop:25, rook:40, queen:70, mate:100, base:400, perPoint:150, mateMs:3000, checkVib:35, checkMs:500, maxI:50, maxMs:2500, promo:"q", dry:false, room:"", token:"", shocker:"" };
+const DEFAULTS = { pawn:10, knight:25, bishop:25, rook:40, queen:70, mate:100, base:400, perPoint:150, mateMs:3000, checkVib:35, checkMs:500, maxI:50, maxMs:2500, promo:"q", dry:false, vibOnly:false, room:"", token:"", shocker:"" };
 const FIELDS = Object.keys(DEFAULTS);
 
 const $ = id => document.getElementById(id);
@@ -136,8 +137,9 @@ let cfg = loadCfg();
 document.querySelectorAll("#setup input, #setup select").forEach(el => el.addEventListener("change", () => { cfg = readCfg(); updateBanner(); }));
 
 function updateBanner() {
-  $("banner").className = "banner " + (cfg.dry ? "dry" : "live");
-  $("banner").textContent = cfg.dry ? "DRY RUN" : "LIVE SHOCKS ENABLED";
+  const mode = cfg.dry ? "dry" : cfg.vibOnly ? "vib" : "live";
+  $("banner").className = "banner " + mode;
+  $("banner").textContent = { dry: "DRY RUN", vib: "VIBRATE ONLY", live: "LIVE SHOCKS ENABLED" }[mode];
 }
 updateBanner();
 
@@ -162,6 +164,7 @@ function cap(type, intensity, duration, reason) {
 }
 
 async function send(p) {
+  if (cfg.vibOnly && p.type === "Shock") p = { ...p, type: "Vibrate" };
   log(`${cfg.dry ? "[DRY RUN] " : ""}${p.type} ${p.intensity}% for ${p.duration} ms (${p.reason})`);
   if (cfg.dry) return;
   if (!cfg.token || !cfg.shocker) { log("no token / shocker id set, nothing sent"); return; }

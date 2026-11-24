@@ -5,82 +5,230 @@
 <title>Chess But It Kills You</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root { --light: #f0d9b5; --dark: #b58863; --sel: #f6f669; --last: #cdd26a; --check: #e05050; }
-  body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #1e1e1e; color: #ddd; }
-  .wrap { display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
-  #board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(92vw, 576px); height: min(92vw, 576px); flex: none; user-select: none; }
-  .sq { display: flex; align-items: center; justify-content: center; overflow: hidden; line-height: 1; font-size: clamp(24px, 6vw, 44px); cursor: pointer; position: relative; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; color: #000; }
-  .sq.light { background: var(--light); } .sq.dark { background: var(--dark); }
-  .sq.last { background: var(--last); } .sq.sel { background: var(--sel); } .sq.check { background: var(--check); }
-  .sq.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: rgba(0,0,0,.45); }
-  .side { width: min(92vw, 360px); display: flex; flex-direction: column; gap: 8px; }
-  .banner { padding: 6px; text-align: center; font-weight: bold; color: #fff; }
-  .banner.dry { background: #3c7a3c; } .banner.live { background: #a00000; } .banner.vib { background: #b36b00; }
-  #status { font-size: 1.1em; min-height: 1.4em; }
-  #punish { color: #ff6b6b; font-weight: bold; min-height: 1.4em; }
-  textarea, #log, #moves { width: 100%; box-sizing: border-box; background: #111; color: #ccc; border: 1px solid #333; font-family: Consolas, monospace; font-size: 12px; }
-  #moves { height: 120px; overflow: auto; padding: 4px; white-space: pre-wrap; }
-  #log { height: 140px; overflow: auto; padding: 4px; white-space: pre-wrap; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; }
-  button { padding: 6px 10px; cursor: pointer; }
-  button.stop { background: #a00000; color: #fff; font-weight: bold; margin-left: auto; }
-  label { display: block; font-size: 13px; margin-top: 4px; }
-  input[type=text], input[type=password], input[type=number], select { width: 100%; box-sizing: border-box; padding: 4px; background: #111; color: #ddd; border: 1px solid #333; }
-  details { border: 1px solid #333; padding: 6px; }
-  summary { cursor: pointer; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
-  small { color: #888; }
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+:root {
+  /* one violet family, dark to light */
+  --bg:     #16101f;
+  --panel:  #1f1830;
+  --inset:  #171126;
+  --border: #3a2d55;
+  --text:   #e8e3f2;
+  --muted:  #9f93b8;
+  --accent: #a78bfa;
+
+  /* board: desaturated violet squares, one warm highlight */
+  --sq-light: #e9e4f2;
+  --sq-dark:  #a195bd;
+  --sq-piece: #241c38;
+  --sel:      #e4c878;
+  --last:     #c3b183;
+  --check:    #e05c6e;
+
+  --pix:  'Pixelify Sans', 'Courier New', monospace;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Consolas', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: var(--body); margin: 0; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+
+a { color: var(--accent); }
+
+/* ── twinkly stars ── */
+.deco-stars { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.deco-s {
+  position: absolute; left: var(--x, 50%); top: var(--y, 50%);
+  font-size: var(--sz, 14px); color: var(--sc, var(--accent));
+  opacity: 0.6;
+  animation: twinkle var(--d, 3s) ease-in-out var(--dl, 0s) infinite;
+  line-height: 1;
+}
+@keyframes twinkle {
+  0%,100% { opacity: 0.6; transform: scale(1) rotate(0deg); }
+  50%     { opacity: 0.12; transform: scale(0.65) rotate(20deg); }
+}
+
+/* ── title ── */
+.page-title {
+  font-family: var(--pix);
+  font-size: clamp(22px, 4.5vw, 42px);
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: 3px;
+  margin: 24px 16px 8px;
+  position: relative; z-index: 1;
+}
+
+.wrap { display: flex; gap: 20px; padding: 16px; flex-wrap: wrap; justify-content: center; align-items: flex-start; position: relative; z-index: 1; }
+
+/* ── panels ── */
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+.panel-body { padding: 12px 14px; }
+.pane-title {
+  font-family: var(--body); font-weight: 700; font-size: 13px; letter-spacing: 0.5px;
+  color: var(--muted); margin: 2px 2px 6px;
+}
+
+/* ── board ── */
+.board-panel { flex: none; padding: 8px; }
+#board {
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  width: min(88vw, 576px); height: min(88vw, 576px);
+  user-select: none;
+  border-radius: 4px; overflow: hidden;
+}
+.sq {
+  display: flex; align-items: center; justify-content: center; overflow: hidden; line-height: 1;
+  font-size: clamp(24px, 6vw, 44px); cursor: pointer; position: relative;
+  font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; color: var(--sq-piece);
+}
+.sq.light { background: var(--sq-light); } .sq.dark { background: var(--sq-dark); }
+.sq.last { background: var(--last); } .sq.sel { background: var(--sel); } .sq.check { background: var(--check); }
+.sq.dot::after { content: ""; position: absolute; width: 22%; height: 22%; border-radius: 50%; background: rgba(36,28,56,.4); }
+
+/* ── side panel ── */
+.side { width: min(92vw, 380px); display: flex; flex-direction: column; gap: 12px; }
+
+.banner {
+  padding: 8px; text-align: center; color: #fff;
+  font-family: var(--body); font-weight: 700; font-size: 14px; letter-spacing: 1px;
+  border-radius: 8px;
+}
+.banner.dry { background: #2f6b3a; } .banner.live { background: #b03030; } .banner.vib { background: #a86a1f; }
+
+#status { font-size: 1em; min-height: 1.4em; }
+#punish { color: var(--accent); font-weight: bold; min-height: 1.4em; font-family: var(--mono); font-size: 13px; }
+
+/* setup is a <details>; its summary is the panel header */
+details.panel > summary {
+  cursor: pointer; list-style: none;
+  font-family: var(--body); font-weight: 700; font-size: 14px; letter-spacing: 0.5px;
+  color: var(--text); padding: 10px 14px;
+}
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary::after { content: " +"; color: var(--muted); }
+details.panel[open] > summary { border-bottom: 1px solid var(--border); }
+details.panel[open] > summary::after { content: " -"; }
+
+label { display: block; font-size: 13px; margin-top: 6px; color: var(--muted); }
+input[type=text], input[type=password], input[type=number], select {
+  width: 100%; box-sizing: border-box; padding: 5px 8px;
+  background: var(--inset); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-family: var(--mono); font-size: 13px;
+  outline: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+input::placeholder { color: var(--muted); opacity: 0.6; }
+input[type=checkbox] { accent-color: var(--accent); }
+
+details.inner { border: 1px solid var(--border); border-radius: 4px; background: var(--inset); padding: 6px 10px; margin-top: 8px; }
+details.inner summary { cursor: pointer; font-family: var(--body); font-weight: 600; font-size: 12px; color: var(--muted); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+small { color: var(--muted); display: block; margin-top: 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── buttons ── */
+button {
+  font-family: var(--body); font-weight: 600; font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--panel); color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+button:hover:not(:disabled) { border-color: var(--accent); background: var(--inset); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.stop {
+  background: #b03030; color: #fff; font-weight: bold;
+  border-color: #b03030;
+  margin-left: auto;
+}
+button.stop:hover:not(:disabled) { background: #8e2525; border-color: #8e2525; }
+
+/* ── mono panes ── */
+#moves, #log {
+  width: 100%; box-sizing: border-box;
+  background: var(--inset); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--mono); font-size: 12px;
+  white-space: pre-wrap; padding: 8px; overflow: auto;
+}
+#moves { height: 120px; }
+#log { height: 140px; }
 </style>
 </head>
 <body>
+
+<div class="deco-stars" aria-hidden="true">
+  <span class="deco-s" style="--x:6%;--y:18%;--sz:16px;--d:3.5s;--dl:0s">&#10022;</span>
+  <span class="deco-s" style="--x:12%;--y:62%;--sz:11px;--d:4s;--dl:1.1s">&#10022;</span>
+  <span class="deco-s" style="--x:90%;--y:24%;--sz:13px;--d:3s;--dl:0.5s">&#10022;</span>
+  <span class="deco-s" style="--x:95%;--y:70%;--sz:15px;--d:3.8s;--dl:1.8s">&#10022;</span>
+  <span class="deco-s" style="--x:3%;--y:88%;--sz:12px;--d:4.4s;--dl:0.8s">&#10022;</span>
+</div>
+
+<h1 class="page-title">chess but it kills you</h1>
+
 <div class="wrap">
-  <div id="board"></div>
+  <div class="panel board-panel">
+    <div id="board"></div>
+  </div>
 
   <div class="side">
     <div id="banner" class="banner live">LIVE SHOCKS ENABLED</div>
-    <div id="status">Not connected.</div>
-    <div id="punish">No punishment yet.</div>
 
-    <details id="setup" open>
+    <div class="panel">
+      <div class="panel-body">
+        <div id="status">Not connected.</div>
+        <div id="punish">No punishment yet.</div>
+      </div>
+    </div>
+
+    <details id="setup" class="panel" open>
       <summary>Setup</summary>
-      <label>Room code <input id="room" type="text" placeholder="purple-knight"></label>
-      <label>OpenShock API token <input id="token" type="password" placeholder="only needs shockers.use"></label>
-      <div class="row" style="align-items:flex-end">
-        <label style="flex:1">Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
-        <button id="check" type="button" title="Ask OpenShock which shockers this token can see">Check token</button>
-      </div>
-      <label id="pickWrap" style="display:none">Pick one
-        <select id="pick"></select>
-      </label>
-      <label><input id="dry" type="checkbox"> Dry run (log only, send nothing)</label>
-      <label><input id="vibOnly" type="checkbox"> Vibrate only (every shock is sent as a vibrate instead)</label>
-      <div class="grid2">
-        <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
-        <label>Max duration ms <input id="maxMs" type="number" min="300" max="65535"></label>
-      </div>
-      <details>
-        <summary>Per-piece numbers</summary>
-        <div class="grid2">
-          <label>Pawn % <input id="pawn" type="number"></label>
-          <label>Knight % <input id="knight" type="number"></label>
-          <label>Bishop % <input id="bishop" type="number"></label>
-          <label>Rook % <input id="rook" type="number"></label>
-          <label>Queen % <input id="queen" type="number"></label>
-          <label>Checkmate % <input id="mate" type="number"></label>
-          <label>Base ms <input id="base" type="number"></label>
-          <label>Per point ms <input id="perPoint" type="number"></label>
-          <label>Checkmate ms <input id="mateMs" type="number"></label>
-          <label>Check vibrate % <input id="checkVib" type="number"></label>
-          <label>Check vibrate ms <input id="checkMs" type="number"></label>
-          <label>Auto-promote to
-            <select id="promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select>
-          </label>
+      <div class="panel-body">
+        <label>Room code <input id="room" type="text" placeholder="purple-knight"></label>
+        <label>OpenShock API token <input id="token" type="password" placeholder="only needs shockers.use"></label>
+        <div class="row" style="align-items:flex-end">
+          <label style="flex:1">Shocker ID <input id="shocker" type="text" placeholder="00000000-0000-0000-0000-000000000000"></label>
+          <button id="check" type="button" title="Ask OpenShock which shockers this token can see">Check token</button>
         </div>
-      </details>
-      <small>Everything here stays in this browser's localStorage. The server only ever sees moves.</small>
-      <div class="row" style="margin-top:6px">
-        <button id="join">Join room</button>
-        <button id="leave" disabled>Leave</button>
+        <label id="pickWrap" style="display:none">Pick one
+          <select id="pick"></select>
+        </label>
+        <label><input id="dry" type="checkbox"> Dry run (log only, send nothing)</label>
+        <label><input id="vibOnly" type="checkbox"> Vibrate only (every shock is sent as a vibrate instead)</label>
+        <div class="grid2">
+          <label>Max intensity <input id="maxI" type="number" min="0" max="100"></label>
+          <label>Max duration ms <input id="maxMs" type="number" min="300" max="65535"></label>
+        </div>
+        <details class="inner">
+          <summary>Per-piece numbers</summary>
+          <div class="grid2">
+            <label>Pawn % <input id="pawn" type="number"></label>
+            <label>Knight % <input id="knight" type="number"></label>
+            <label>Bishop % <input id="bishop" type="number"></label>
+            <label>Rook % <input id="rook" type="number"></label>
+            <label>Queen % <input id="queen" type="number"></label>
+            <label>Checkmate % <input id="mate" type="number"></label>
+            <label>Base ms <input id="base" type="number"></label>
+            <label>Per point ms <input id="perPoint" type="number"></label>
+            <label>Checkmate ms <input id="mateMs" type="number"></label>
+            <label>Check vibrate % <input id="checkVib" type="number"></label>
+            <label>Check vibrate ms <input id="checkMs" type="number"></label>
+            <label>Auto-promote to
+              <select id="promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select>
+            </label>
+          </div>
+        </details>
+        <small>Everything here stays in this browser's localStorage. The server only ever sees moves.</small>
+        <div class="row" style="margin-top:8px">
+          <button id="join">Join room</button>
+          <button id="leave" disabled>Leave</button>
+        </div>
       </div>
     </details>
 
@@ -91,10 +239,15 @@
       <button id="stop" class="stop">EMERGENCY STOP</button>
     </div>
 
-    <div>Moves</div>
-    <div id="moves"></div>
-    <div>Log</div>
-    <div id="log"></div>
+    <div>
+      <div class="pane-title">Moves</div>
+      <div id="moves"></div>
+    </div>
+
+    <div>
+      <div class="pane-title">Log</div>
+      <div id="log"></div>
+    </div>
   </div>
 </div>
 
@@ -322,6 +475,7 @@ function connect() {
       log(`Joined "${cfg.room}" as ${name(me)}.`);
       $("newgame").disabled = false; $("resign").disabled = false;
       $("setup").open = false;
+      lastResigned = msg.resigned || null;  // the welcome snapshot is old news, not an event: never re-shock a resignation from before we joined
       applyState({ ...msg, last: null });
       state.last = null;
     } else if (msg.type === "state") {
